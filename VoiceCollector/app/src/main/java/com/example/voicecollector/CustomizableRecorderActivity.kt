@@ -6,18 +6,23 @@
 package com.example.voicecollector
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.text.method.DigitsKeyListener
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.net.toUri
 import androidx.core.widget.addTextChangedListener
+import java.io.File
+
 
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
@@ -109,7 +114,14 @@ class CustomizableRecorderActivity : AppCompatActivity() {
             isPlaying = !isPlaying
         }
 
+    }
 
+    override fun onStop() {
+        super.onStop()
+        recorder?.release()
+        recorder = null
+        player?.release()
+        player = null
     }
 
     fun inputValidator(): Boolean {
@@ -205,5 +217,70 @@ class CustomizableRecorderActivity : AppCompatActivity() {
             release()
         }
         recorder = null
+        // 为了加速录制，在录制完一个音频后，自动更改 Data ID，目前录制计划为
+        // 在真实数据集上：每个用户选取 50 条命令（参考 CaField，命令选自 ok-google.io），在 4 个不同距离
+        // 进行录制。分别是：25cm（面前，正常使用手机的距离）收集 20 条，50cm 收集 10条， 100 cm 收集 10
+        // 条，3m 收集 10条，在重放数据集上，每条真实语音都在 25cm ， 100cm 和 3m 距离进行重放。这样每个
+        // 用户都会生成 200 条音频数据。将用户在 25 cm距离的真实语音中选取 10条用于录入，剩余用于测试。
+        val spoofSwitch:Switch = findViewById(R.id.spoofSwitch)
+        val dataIdInput: EditText = findViewById(R.id.dataIdInput)
+        val recordDistanceSpinner: Spinner = findViewById(R.id.recordDistanceSpinner)
+        // 先对 Data Id 递增
+        var currentDataId:Int = dataIdInput.text.toString().toInt() + 1
+
+        // 再 “进位”
+        if(spoofSwitch.isChecked){
+            // spoof
+            if(currentDataId > 50){
+                when(recordDistanceSpinner.selectedItemId) {
+                    0.toLong() -> {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(2)  // 将 Spinner 设置选中第三项
+                    }
+                    2.toLong() -> {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(3)
+                    }
+                    3.toLong() -> {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(0)
+                        spoofSwitch.isChecked = false  // 切换至录制 genuine
+                    }
+                }
+
+            }
+        }
+        else{
+            // genuine
+            when(recordDistanceSpinner.selectedItemId) {
+                0.toLong() -> {
+                    if (currentDataId > 20) {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(1)
+                    }
+                }
+                1.toLong() -> {
+                    if (currentDataId > 10) {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(2)
+                    }
+                }
+                2.toLong() -> {
+                    if (currentDataId > 10) {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(3)
+                    }
+                }
+                3.toLong() -> {
+                    if (currentDataId > 10) {
+                        currentDataId = 1
+                        recordDistanceSpinner.setSelection(0)
+                        spoofSwitch.isChecked = true  // 切换至录制 spoof
+                    }
+                }
+            }
+        }
+        dataIdInput.setText(currentDataId.toString())
     }
+
 }
