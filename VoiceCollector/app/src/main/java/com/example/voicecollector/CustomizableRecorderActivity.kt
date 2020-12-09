@@ -45,6 +45,8 @@ class CustomizableRecorderActivity : AppCompatActivity() {
         setContentView(R.layout.activity_customizable_recorder)
         val startRecordingButton: Button = findViewById(R.id.startRecordingButton)
         val startPlayingButton: Button = findViewById(R.id.startPlayingButton)
+        val backRecordButton:Button = findViewById(R.id.backRecordButton)
+        val nextRecordButton:Button = findViewById(R.id.nextRecordButton)
         val userIdInput: EditText = findViewById(R.id.userIdInput)
         val dataIdInput: EditText = findViewById(R.id.dataIdInput)
         val spoofSwitch: Switch = findViewById(R.id.spoofSwitch)
@@ -112,6 +114,31 @@ class CustomizableRecorderActivity : AppCompatActivity() {
                 startPlaying()
             }
             isPlaying = !isPlaying
+        }
+
+
+        backRecordButton.setOnClickListener {
+            updateFileName()
+            if(!inputComplete){
+                return@setOnClickListener
+            }
+            var data_id = dataIdInput.text.toString().toInt()
+            if(data_id > 1 ) {
+                data_id -= 1  // 不做借位运算了，单纯减一
+            }
+            dataIdInput.setText(data_id.toString())
+        }
+
+        nextRecordButton.setOnClickListener {
+            updateFileName()
+            if (!inputComplete) {
+                return@setOnClickListener
+            }
+            // 进位操作参考 stopRecording
+            // 先对 Data Id 递增
+            val currentDataId: Int = dataIdInput.text.toString().toInt() + 1
+            // 不进位了
+            dataIdInput.setText(currentDataId.toString())
         }
 
     }
@@ -224,58 +251,62 @@ class CustomizableRecorderActivity : AppCompatActivity() {
         // 用户都会生成 200 条音频数据。将用户在 25 cm距离的真实语音中选取 10条用于录入，剩余用于测试。
         val spoofSwitch:Switch = findViewById(R.id.spoofSwitch)
         val dataIdInput: EditText = findViewById(R.id.dataIdInput)
+        val userId: Int = findViewById<EditText>(R.id.userIdInput).text.toString().toInt()
         val recordDistanceSpinner: Spinner = findViewById(R.id.recordDistanceSpinner)
         // 先对 Data Id 递增
         var currentDataId:Int = dataIdInput.text.toString().toInt() + 1
 
         // 再 “进位”
-        if(spoofSwitch.isChecked){
-            // spoof
-            if(currentDataId > 50){
+        // 101 以后的userId 不进位
+        if (userId < 101){
+            if(spoofSwitch.isChecked){
+                // spoof
+                if(currentDataId > 50){
+                    when(recordDistanceSpinner.selectedItemId) {
+                        0.toLong() -> {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(2)  // 将 Spinner 设置选中第三项
+                        }
+                        2.toLong() -> {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(3)
+                        }
+                        3.toLong() -> {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(0)
+                            spoofSwitch.isChecked = false  // 切换至录制 genuine
+                        }
+                    }
+
+                }
+            }
+            else{
+                // genuine
                 when(recordDistanceSpinner.selectedItemId) {
                     0.toLong() -> {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(2)  // 将 Spinner 设置选中第三项
+                        if (currentDataId > 20) {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(1)
+                        }
+                    }
+                    1.toLong() -> {
+                        if (currentDataId > 10) {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(2)
+                        }
                     }
                     2.toLong() -> {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(3)
+                        if (currentDataId > 10) {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(3)
+                        }
                     }
                     3.toLong() -> {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(0)
-                        spoofSwitch.isChecked = false  // 切换至录制 genuine
-                    }
-                }
-
-            }
-        }
-        else{
-            // genuine
-            when(recordDistanceSpinner.selectedItemId) {
-                0.toLong() -> {
-                    if (currentDataId > 20) {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(1)
-                    }
-                }
-                1.toLong() -> {
-                    if (currentDataId > 10) {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(2)
-                    }
-                }
-                2.toLong() -> {
-                    if (currentDataId > 10) {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(3)
-                    }
-                }
-                3.toLong() -> {
-                    if (currentDataId > 10) {
-                        currentDataId = 1
-                        recordDistanceSpinner.setSelection(0)
-                        spoofSwitch.isChecked = true  // 切换至录制 spoof
+                        if (currentDataId > 10) {
+                            currentDataId = 1
+                            recordDistanceSpinner.setSelection(0)
+                            spoofSwitch.isChecked = true  // 切换至录制 spoof
+                        }
                     }
                 }
             }
